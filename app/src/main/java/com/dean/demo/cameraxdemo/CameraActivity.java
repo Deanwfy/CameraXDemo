@@ -41,7 +41,6 @@ import androidx.camera.core.ImageCaptureConfig;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.core.PreviewConfig;
-import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.content.ContextCompat;
 
 import com.google.zxing.BarcodeFormat;
@@ -64,15 +63,11 @@ import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-
-import static android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
 
 @EActivity(R.layout.activity_camera)
 public class CameraActivity extends AppCompatActivity {
@@ -90,9 +85,6 @@ public class CameraActivity extends AppCompatActivity {
 
     private DisplayMetrics textureMetrics;
     private ImageCapture imageCapture;
-
-    private Size mPreviewSize;
-    private Size mCaptureSize;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -148,7 +140,9 @@ public class CameraActivity extends AppCompatActivity {
 //        ConstraintLayout.LayoutParams constraintLayout = new ConstraintLayout.LayoutParams(size.getHeight(), size.getWidth());
 //        textureView.setLayoutParams(constraintLayout);
 
-
+        /*
+         Preview
+         */
         PreviewConfig previewConfig = new PreviewConfig.Builder()
 //                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                 .setTargetAspectRatioCustom(new Rational(size.getHeight(), size.getWidth()))
@@ -166,14 +160,9 @@ public class CameraActivity extends AppCompatActivity {
             updateTransform();
         });
 
-        ImageCaptureConfig captureConfig = new ImageCaptureConfig.Builder()
-                .setTargetRotation(getWindowManager().getDefaultDisplay().getRotation())
-                .setCaptureMode(ImageCapture.CaptureMode.MAX_QUALITY)
-                .setFlashMode(FlashMode.OFF)
-                .setTargetAspectRatioCustom(new Rational(size.getHeight(), size.getWidth()))
-                .build();
-        imageCapture = new ImageCapture(captureConfig);
-
+        /*
+         Analysis
+         */
         ImageAnalysisConfig analysisConfig = new ImageAnalysisConfig.Builder()
 //                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                 .setTargetAspectRatioCustom(new Rational(size.getHeight(), size.getWidth()))
@@ -185,7 +174,19 @@ public class CameraActivity extends AppCompatActivity {
         ImageAnalysis analysis = new ImageAnalysis(analysisConfig);
         analysis.setAnalyzer(this::runOnUiThread, new BarCodeAnalyzer());
 
-        CameraX.bindToLifecycle(CameraActivity.this, analysis, imageCapture, preview);
+        /*
+         Capture
+         */
+        ImageCaptureConfig captureConfig = new ImageCaptureConfig.Builder()
+                .setTargetRotation(getWindowManager().getDefaultDisplay().getRotation())
+                .setCaptureMode(ImageCapture.CaptureMode.MAX_QUALITY)
+                .setFlashMode(FlashMode.OFF)
+                .setTargetAspectRatioCustom(new Rational(size.getHeight(), size.getWidth()))
+                .build();
+
+        imageCapture = new ImageCapture(captureConfig);
+
+        CameraX.bindToLifecycle(CameraActivity.this, preview, analysis, imageCapture);
     }
 
     private void updateTransform() {
@@ -219,11 +220,10 @@ public class CameraActivity extends AppCompatActivity {
 
     @UiThread
     private void scannerSuccess(String cardNumber) {
-        if (cardNumber.length() == 16) {
-//            CameraX.unbindAll();
-//            CameraActivity.this.onBackPressed();
-            Toast.makeText(CameraActivity.this, cardNumber, Toast.LENGTH_SHORT).show();
-        }
+        CameraX.unbindAll();
+        MainActivity.goodsInfoTextView.setText(cardNumber);
+        CameraActivity.this.onBackPressed();
+//        Toast.makeText(CameraActivity.this, cardNumber, Toast.LENGTH_SHORT).show();
     }
 
     @UiThread
@@ -258,7 +258,10 @@ public class CameraActivity extends AppCompatActivity {
 
         BarCodeAnalyzer() {
             List<BarcodeFormat> decodeFormats = new ArrayList<>();
-            decodeFormats.add(BarcodeFormat.CODE_128);
+            decodeFormats.add(BarcodeFormat.EAN_8);
+            decodeFormats.add(BarcodeFormat.EAN_13);
+            decodeFormats.add(BarcodeFormat.UPC_A);
+            decodeFormats.add(BarcodeFormat.UPC_E);
 
             Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
             hints.put(DecodeHintType.PURE_BARCODE, Boolean.TRUE);
@@ -286,7 +289,7 @@ public class CameraActivity extends AppCompatActivity {
                         data,
                         image.getHeight(),
                         image.getWidth(),
-                        0, 0, 100, 100,
+                        0, 0, image.getHeight(), image.getWidth(),
                         false);
 
                 BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
@@ -396,19 +399,20 @@ public class CameraActivity extends AppCompatActivity {
 
     private Size setupCamera(int width, int height) {
         Size bestSize = new Size(480, 640);
-        //获取摄像头的管理者CameraManager
+        // 摄像头管理器
         CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
-            //遍历所有摄像头
+            // 遍历所有摄像头
             for (String cameraId : manager.getCameraIdList()) {
                 CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
-                //跳过前置摄像头
+                // 跳过前置摄像头
                 Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
                 if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT)
                     continue;
-                //获取StreamConfigurationMap，它是管理摄像头支持的所有输出格式和尺寸
+                // 摄像头支持的所有输出格式和分辨率
                 StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
                 assert map != null;
+                // 与预览尺寸比例最相近的摄像头支持的分辨率
                 Size[] sizes = map.getOutputSizes(ImageFormat.JPEG);
                 Arrays.sort(sizes, (size1, size2) -> {
                     float ratio1 = size1.getHeight() / size1.getWidth();
@@ -417,22 +421,17 @@ public class CameraActivity extends AppCompatActivity {
                     if (ratio1 <= ratio2) return 0; // size1, size2
                     else return 1; // size2, size1
                 });
-                List<Size> supportSize = Arrays.asList(sizes);
-                double textureRatio = width / (double)height;
+                double textureRatio = width / (double) height;
                 double distanceTemp = 1;
-                for (Size size : supportSize) {
+                for (Size size : sizes) {
                     double ratio = size.getHeight() / (double) size.getWidth();
                     if (Math.abs(textureRatio - ratio) < distanceTemp) {
                         distanceTemp = Math.abs(textureRatio - ratio);
                         bestSize = size;
                     }
                 }
-//                //根据TextureView的尺寸设置预览尺寸
-//                mPreviewSize = getOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height);
-//                //获取相机支持的最大拍照尺寸
-//                mCaptureSize = Collections.max(Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)), (lhs, rhs) -> Long.signum(lhs.getWidth() * lhs.getHeight() - rhs.getHeight() * rhs.getWidth()));
-                Log.v("mPreviewSize:", mPreviewSize + "");
-                Log.v("mCaptureSize:", mCaptureSize + "");
+                // 摄像头支持的最大分辨率
+//                Size largestSize = Collections.max(Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)), (lhs, rhs) -> Long.signum(lhs.getWidth() * lhs.getHeight() - rhs.getHeight() * rhs.getWidth()));
                 Log.v("bestSize:", bestSize + "");
                 break;
             }
@@ -440,29 +439,5 @@ public class CameraActivity extends AppCompatActivity {
             e.printStackTrace();
         }
         return bestSize;
-    }
-
-    private Size getOptimalSize(Size[] sizeMap, int width, int height) {
-        List<Size> sizeList = new ArrayList<>();
-        for (Size option : sizeMap) {
-            if (width > height) {
-                if (option.getWidth() > width && option.getHeight() > height) {
-                    sizeList.add(option);
-                }
-            } else {
-                if (option.getWidth() > height && option.getHeight() > width) {
-                    sizeList.add(option);
-                }
-            }
-        }
-        if (sizeList.size() > 0) {
-            return Collections.min(sizeList, new Comparator<Size>() {
-                @Override
-                public int compare(Size lhs, Size rhs) {
-                    return Long.signum(lhs.getWidth() * lhs.getHeight() - rhs.getWidth() * rhs.getHeight());
-                }
-            });
-        }
-        return sizeMap[0];
     }
 }
