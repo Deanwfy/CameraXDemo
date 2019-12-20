@@ -13,6 +13,7 @@ public class MainActivity extends AppCompatActivity {
 
     @ViewById(R.id.tv_goods_info)
     public static TextView goodsInfoTextView;
+    // TODO
 
     @Click(R.id.button_start_camera)
     void startCamera() {
