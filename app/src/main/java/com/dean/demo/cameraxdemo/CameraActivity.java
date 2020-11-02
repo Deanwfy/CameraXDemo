@@ -289,10 +289,15 @@ public class CameraActivity extends AppCompatActivity {
                 byte[] data = rotate(image2Bytes(image), image.getWidth(), image.getHeight(), rotationDegrees);
 
                 if(mDebug) {
+                    analysisImage.setVisibility(View.VISIBLE);
+                    cropRectImage.setVisibility(View.VISIBLE);
                     analysisImage.setImageBitmap(byte2Bitmap(image, data));
                     Rect cropRect = getCropRect(image.getWidth(), image.getHeight(), rotationDegrees != 0);
                     cropRectImage.setMinimumHeight(cropRect.height());
                     cropRectImage.setMinimumWidth(cropRect.width());
+                } else {
+                    analysisImage.setVisibility(View.GONE);
+                    cropRectImage.setVisibility(View.GONE);
                 }
 
                 PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
