@@ -85,6 +85,7 @@ public class CameraActivity extends AppCompatActivity {
 
     private DisplayMetrics textureMetrics;
     private ImageCapture imageCapture;
+    private boolean mDebug;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -135,7 +136,7 @@ public class CameraActivity extends AppCompatActivity {
     private void startCamera() {
         textureMetrics = new DisplayMetrics();
         textureView.getDisplay().getRealMetrics(textureMetrics);
-        Size size = setupCamera(textureMetrics.widthPixels, textureMetrics.heightPixels);
+        Size size = getOptimalSize(textureMetrics.widthPixels, textureMetrics.heightPixels);
 //        size = new Size(textureView.getWidth() * 4 / 3, textureView.getWidth());
 //        ConstraintLayout.LayoutParams constraintLayout = new ConstraintLayout.LayoutParams(size.getHeight(), size.getWidth());
 //        textureView.setLayoutParams(constraintLayout);
@@ -220,10 +221,10 @@ public class CameraActivity extends AppCompatActivity {
 
     @UiThread
     private void scannerSuccess(String cardNumber) {
-        CameraX.unbindAll();
-        MainActivity.goodsInfoTextView.setText(cardNumber);
-        CameraActivity.this.onBackPressed();
-//        Toast.makeText(CameraActivity.this, cardNumber, Toast.LENGTH_SHORT).show();
+//        CameraX.unbindAll();
+//        MainActivity.goodsInfoTextView.setText(cardNumber);
+//        CameraActivity.this.onBackPressed();
+        Toast.makeText(CameraActivity.this, cardNumber, Toast.LENGTH_SHORT).show();
     }
 
     @UiThread
@@ -251,6 +252,11 @@ public class CameraActivity extends AppCompatActivity {
                 });
     }
 
+    @Click(R.id.debug_button)
+    void toggleDebug() {
+        mDebug = !mDebug;
+    }
+
     private class BarCodeAnalyzer implements ImageAnalysis.Analyzer {
 
         private long lastAnalyzedTimestamp = 0;
@@ -262,9 +268,10 @@ public class CameraActivity extends AppCompatActivity {
             decodeFormats.add(BarcodeFormat.EAN_13);
             decodeFormats.add(BarcodeFormat.UPC_A);
             decodeFormats.add(BarcodeFormat.UPC_E);
+            decodeFormats.add(BarcodeFormat.CODE_128);
 
             Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
-            hints.put(DecodeHintType.PURE_BARCODE, Boolean.TRUE);
+//            hints.put(DecodeHintType.PURE_BARCODE, Boolean.TRUE);
             hints.put(DecodeHintType.CHARACTER_SET, "utf-8");
             hints.put(DecodeHintType.POSSIBLE_FORMATS, decodeFormats);
 //            hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
@@ -281,9 +288,12 @@ public class CameraActivity extends AppCompatActivity {
 
                 byte[] data = rotate(image2Bytes(image), image.getWidth(), image.getHeight(), rotationDegrees);
 
-                Rect cropRect = getCropRect(image.getWidth(), image.getHeight(), rotationDegrees != 0);
-                cropRectImage.setMinimumHeight(cropRect.height());
-                cropRectImage.setMinimumWidth(cropRect.width());
+                if(mDebug) {
+                    analysisImage.setImageBitmap(byte2Bitmap(image, data));
+                    Rect cropRect = getCropRect(image.getWidth(), image.getHeight(), rotationDegrees != 0);
+                    cropRectImage.setMinimumHeight(cropRect.height());
+                    cropRectImage.setMinimumWidth(cropRect.width());
+                }
 
                 PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
                         data,
@@ -293,8 +303,6 @@ public class CameraActivity extends AppCompatActivity {
                         false);
 
                 BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-
-                analysisImage.setImageBitmap(byte2Bitmap(image, data));
 
                 try {
                     Result result = reader.decode(bitmap);
@@ -340,8 +348,14 @@ public class CameraActivity extends AppCompatActivity {
             byte[] bytes21 = new byte[sizeY + sizeU + sizeV];
 
             byteBufferY.get(bytes21, 0, sizeY);
-            byteBufferV.get(bytes21, sizeY, sizeV);
-            byteBufferU.get(bytes21, sizeY + sizeV, sizeU);
+            for (int u = sizeY; u < sizeY + sizeU; u++) {
+                bytes21[u] = -128;
+            }
+            for (int v = sizeY + sizeU; v < sizeY + sizeU + sizeV; v++) {
+                bytes21[v] = -128;
+            }
+//            byteBufferV.get(bytes21, sizeY, sizeV);
+//            byteBufferU.get(bytes21, sizeY + sizeV, sizeU);
 
             return bytes21;
         }
@@ -388,6 +402,12 @@ public class CameraActivity extends AppCompatActivity {
             }
 
             return output;
+//            byte[] rotatedData = new byte[yuv.length];
+//            for (int y = 0; y < height; y++) {
+//                for (int x = 0; x < width; x++)
+//                    rotatedData[x * height + height - y - 1] = yuv[x + y * width];
+//            }
+//            return rotatedData;
         }
     }
 
@@ -397,7 +417,7 @@ public class CameraActivity extends AppCompatActivity {
         return sdf.format(time);
     }
 
-    private Size setupCamera(int width, int height) {
+    private Size getOptimalSize(int width, int height) {
         Size bestSize = new Size(480, 640);
         // 摄像头管理器
         CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
@@ -415,8 +435,8 @@ public class CameraActivity extends AppCompatActivity {
                 // 与预览尺寸比例最相近的摄像头支持的分辨率
                 Size[] sizes = map.getOutputSizes(ImageFormat.JPEG);
                 Arrays.sort(sizes, (size1, size2) -> {
-                    float ratio1 = size1.getHeight() / size1.getWidth();
-                    float ratio2 = size2.getHeight() / size2.getWidth();
+                    float ratio1 = (float) size1.getHeight() / size1.getWidth();
+                    float ratio2 = (float) size2.getHeight() / size2.getWidth();
                     // 差异越大比例越小，越靠前
                     if (ratio1 <= ratio2) return 0; // size1, size2
                     else return 1; // size2, size1
