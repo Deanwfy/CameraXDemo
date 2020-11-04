@@ -222,7 +222,7 @@ public class CameraActivity extends AppCompatActivity {
     @UiThread
     private void scannerSuccess(String cardNumber) {
 //        CameraX.unbindAll();
-//        MainActivity.goodsInfoTextView.setText(cardNumber);
+//        MainActivity.setGoodsInfo(cardNumber);
 //        CameraActivity.this.onBackPressed();
         Toast.makeText(CameraActivity.this, cardNumber, Toast.LENGTH_SHORT).show();
     }

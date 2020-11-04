@@ -34,7 +34,7 @@ dependencies {
     implementation "androidx.camera:camera-core:$camerax_version"
     implementation "androidx.camera:camera-camera2:$camerax_version"
     // android annotations
-    def AAVersion = '4.6.0'
+    def AAVersion = '4.7.0'
     annotationProcessor "org.androidannotations:androidannotations:$AAVersion"
     implementation "org.androidannotations:androidannotations-api:$AAVersion"
     annotationProcessor "org.androidannotations:rest-spring:$AAVersion"

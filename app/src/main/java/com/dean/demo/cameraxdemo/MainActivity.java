@@ -1,6 +1,5 @@
 package com.dean.demo.cameraxdemo;
 
-import android.content.DialogInterface;
 import android.hardware.biometrics.BiometricPrompt;
 import android.os.Build;
 import android.os.Bundle;
@@ -18,7 +17,7 @@ import org.androidannotations.annotations.ViewById;
 public class MainActivity extends AppCompatActivity {
 
     @ViewById(R.id.tv_goods_info)
-    public static TextView goodsInfoTextView;
+    public TextView goodsInfoTextView;
 
     private BiometricPrompt biometricPrompt;
 
@@ -30,7 +29,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        initBiometricRecognize();
+//        initBiometricRecognize();
+    }
+
+    public void setGoodsInfo(String goodsInfo) {
+        goodsInfoTextView.setText(goodsInfo);
     }
 
     private void initBiometricRecognize() {
